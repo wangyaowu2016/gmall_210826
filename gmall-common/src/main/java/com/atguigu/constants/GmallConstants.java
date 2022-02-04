@@ -20,10 +20,10 @@ public class GmallConstants {
     //用户主题
     public static final String KAFKA_TOPIC_USER = "TOPIC_USER_INFO";
 
-    //灵活分析索引名
+    //灵活分析需求ES索引前缀
     public static final String ES_DETAIL_INDEXNAME = "gmall2021_sale_detail";
 
-    //灵活分析索引别名
+    //灵活分析需求ES索引别名
     public static final String ES_QUERY_INDEXNAME = "gmall2021_sale_detail-query";
 
 }

@@ -23,6 +23,7 @@ object DauHandler {
 
     //2.按当天的mid的数据聚合到一块
     val midWithLogDateToIterStartLogDStream = midWithLogDateToStartLogDStream.groupByKey()
+
     //3.对迭代器中的数据做排序
     val midWithLogDateToListStartLogDStream = midWithLogDateToIterStartLogDStream.mapValues(
       Iter => {
@@ -32,7 +33,6 @@ object DauHandler {
     //4.取出value并打散
     val value = midWithLogDateToListStartLogDStream.flatMap(_._2)
     value
-
   }
 
   /**
@@ -47,10 +47,11 @@ object DauHandler {
         val jedis = new Jedis("hadoop102", 6379)
         //2.获取redis中的数据
         val rediskey = "DAU" + log.logDate
-        //        val mids = jedis.smembers(rediskey)
-        //        //3.判断当前id是否包含在redis中
-        //        val bool = mids.contains(log.mid)
-
+        //方式一
+//        val mids = jedis.smembers(rediskey)
+//        //3.判断当前id是否包含在redis中,对比数据，重复的去掉，不重的留下来
+//        val bool = mids.contains(log.mid)
+        //方式二
         //3.直接利用redis中的set类型的方法判断是否存在
         val bool = jedis.sismember(rediskey, log.mid)
 
@@ -77,8 +78,9 @@ object DauHandler {
       }
     )*/
     //方案三 在每个批次下获取一次连接
+    //需要一个批次执行一次的算子，foreachRDD没有返回值,transform有返回值
     val sdf = new SimpleDateFormat("yyyy-MM-dd")
-    val value1 = startUpLogDStream.transform(//可以不返回
+    val value = startUpLogDStream.transform(//可以不返回
       rdd => {
         //创建redis连接
         val jedis = new Jedis("hadoop102", 6379)
@@ -88,17 +90,17 @@ object DauHandler {
         val mids = jedis.smembers(rediskey)
 
         //将redis中查询出来的数据广播到executor端
-        val midBc = sc.broadcast(mids)
+        val midsBc = sc.broadcast(mids)
 
         val value = rdd.filter(
           log => {
-            val bool = midBc.value.contains(log.mid)
+            val bool = midsBc.value.contains(log.mid)
             !bool
           })
         jedis.close()
         value
       })
-    value1
+    value
   }
 
   /**
@@ -108,11 +110,11 @@ object DauHandler {
    * @return
    */
   def saveMidToRedis(startUpLogDStream: DStream[StartUpLog]) = {
-    startUpLogDStream.foreachRDD(
+    startUpLogDStream.foreachRDD(//SparkStreaming中foreachRDD和transform这两个算子是在dirver端执行
       rdd => {
         rdd.foreachPartition(
           partition => {
-            //创建redis连接
+            //在分区下创建redis连接
             val jedis = new Jedis("hadoop102", 6379)
             partition.foreach(
               startUpLog => {

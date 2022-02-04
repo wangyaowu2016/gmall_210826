@@ -10,4 +10,9 @@ object PropertiesUtil {
     prop.load(new InputStreamReader(Thread.currentThread().getContextClassLoader.getResourceAsStream(propertieName) , "UTF-8"))
     prop
   }
+
+//  def main(args: Array[String]): Unit = {
+//    val properties: Properties = load("config.properties")
+//    println(properties.getProperty("kafka.broker.list"))
+//  }
 }
